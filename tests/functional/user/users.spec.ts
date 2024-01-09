@@ -1,5 +1,5 @@
 import Database from '@ioc:Adonis/Lucid/Database'
-
+import Hash from '@ioc:Adonis/Core/Hash'
 import { test } from '@japa/runner'
 import { UserFactory } from 'Database/factories'
 
@@ -84,6 +84,100 @@ test.group('User', (group) => {
       .json({ email: 'test@gmail.com', username: 'test', password: 'tes' })
     response.assertStatus(422)
 
+    response.assertBodyContains({
+      code: 'BAD_REQUEST',
+      status: 422,
+    })
+  })
+
+  test('it should update an user', async ({ client }) => {
+    const user = await UserFactory.create()
+    const email = 'test@test.com'
+    const avatar = 'http://github.com/Neto6391'
+    const response = await client
+      .put(`/api/v1/users/${user.id}`)
+      .json({ email, avatar, username: 'test1', password: 'test1234' })
+    response.assertStatus(200)
+    response.assertBodyContains({
+      user: {
+        email,
+        avatar,
+        id: user.id,
+      },
+    })
+  })
+
+  test('it should update the password of the user', async ({ assert, client }) => {
+    const user = await UserFactory.create()
+    const password = 'test1234'
+    const response = await client
+      .put(`/api/v1/users/${user.id}`)
+      .json({ email: user.email, username: user.username, avatar: user.avatar, password })
+    response.assertStatus(200)
+    response.assertBodyContains({
+      user: {
+        id: user.id,
+      },
+    })
+    await user.refresh()
+    assert.isTrue(await Hash.verify(user.password, password))
+  })
+
+  test('it should return 422 when required data is not provided', async ({ client }) => {
+    const user = await UserFactory.create()
+    const response = await client.put(`/api/v1/users/${user.id}`).json({})
+    response.assertBodyContains({
+      code: 'BAD_REQUEST',
+      status: 422,
+    })
+  })
+
+  test('it should return 422 when providing an invalid email', async ({ client }) => {
+    const user = await UserFactory.create()
+    const response = await client.put(`/api/v1/users/${user.id}`).json({
+      email: 'test@',
+      username: user.username,
+      avatar: user.avatar,
+    })
+    response.assertBodyContains({
+      code: 'BAD_REQUEST',
+      status: 422,
+    })
+  })
+
+  test('it should return 422 when providing an invalid password', async ({ client }) => {
+    const user = await UserFactory.create()
+    const response = await client
+      .put(`/api/v1/users/${user.id}`)
+      .json({ email: 'test@', username: user.username, avatar: user.avatar, password: 'test' })
+    response.assertBodyContains({
+      code: 'BAD_REQUEST',
+      status: 422,
+    })
+  })
+
+  test('it should return 422 when providing an invalid avatar', async ({ client }) => {
+    const user = await UserFactory.create()
+    const response = await client.put(`/api/v1/users/${user.id}`).json({
+      email: 'test@',
+      username: user.username,
+      avatar: 'images',
+      password: 'test',
+    })
+    response.assertBodyContains({
+      code: 'BAD_REQUEST',
+      status: 422,
+    })
+  })
+
+  test('it should return 422 when providing an invalid username', async ({ client }) => {
+    const user = await UserFactory.create()
+    const response = await client.put(`/api/v1/users/${user.id}`).json({
+      email: 'test@',
+      username: '',
+      avatar: user.avatar,
+      password: 'test',
+    })
     response.assertBodyContains({
       code: 'BAD_REQUEST',
       status: 422,
